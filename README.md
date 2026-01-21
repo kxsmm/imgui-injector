@@ -1,14 +1,16 @@
 
 # imgui-injector
 
-[![GitHub Stars](https://img.shields.io/github/stars/kxsmm/imgui-injector?style=flat&color=brightgreen)](https://github.com/kxsmm/imgui-injector/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/kxsmm/imgui-injector?style=flat&color=orange)](https://github.com/kxsmm/imgui-injector/network/members)
-[![GitHub Issues](https://img.shields.io/github/issues/kxsmm/imgui-injector?style=flat&color=blueviolet)](https://github.com/kxsmm/imgui-injector/issues)
-[![GitHub Last Commit](https://img.shields.io/github/last-commit/kxsmm/imgui-injector?style=flat&color=yellow)](https://github.com/kxsmm/imgui-injector/commits/main)
-[![GitHub Language Count](https://img.shields.io/github/languages/count/kxsmm/imgui-injector?style=flat&color=blue)](https://github.com/kxsmm/imgui-injector)
-[![GitHub top language](https://img.shields.io/github/languages/top/kxsmm/imgui-injector?style=flat&color=red)](https://github.com/kxsmm/imgui-injector)
-[![GitHub License](https://img.shields.io/github/license/kxsmm/imgui-injector?style=flat&color=informational)](https://github.com/kxsmm/imgui-injector)
-## 项目简介
+<!-- 项目状态徽章 -->
+[![星标](https://img.shields.io/github/stars/kxsmm/imgui-injector?style=flat&color=brightgreen)](https://github.com/kxsmm/imgui-injector/stargazers)
+[![分叉](https://img.shields.io/github/forks/kxsmm/imgui-injector?style=flat&color=orange)](https://github.com/kxsmm/imgui-injector/network/members)
+[![问题](https://img.shields.io/github/issues/kxsmm/imgui-injector?style=flat&color=blueviolet)](https://github.com/kxsmm/imgui-injector/issues)
+[![最后提交](https://img.shields.io/github/last-commit/kxsmm/imgui-injector?style=flat&color=yellow)](https://github.com/kxsmm/imgui-injector/commits/main)
+[![语言数](https://img.shields.io/github/languages/count/kxsmm/imgui-injector?style=flat&color=blue)](https://github.com/kxsmm/imgui-injector)
+[![主语言](https://img.shields.io/github/languages/top/kxsmm/imgui-injector?style=flat&color=red)](https://github.com/kxsmm/imgui-injector)
+[![许可证](https://img.shields.io/github/license/kxsmm/imgui-injector?style=flat&color=informational)](https://github.com/kxsmm/imgui-injector)
+
+# 项目简介
 
 imgui-injector 是一个用 C 语言编写的 ImGui 动态注入适配多平台，适合用于原生程序的 UI 插件开发、逆向调试等场景。
 
