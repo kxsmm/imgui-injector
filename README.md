@@ -2,15 +2,6 @@
 
 项目地址：https://github.com/kxsmm/imgui-injector
 
-![release](https://img.shields.io/github/v/release/kxsmm/imgui-injector) 
-[![Code size](https://img.shields.io/github/languages/code-size/kxsmm/imgui-injector
-?logo=github&logoColor=white)](https://github.com/nightmare-space/code_lfa)
-[![License](https://img.shields.io/github/license/kxsmm/imgui-injector
-?logo=open-source-initiative&logoColor=green)](https://github.com/kxsmm/imgui-injector
-/blob/master/LICENSE)
- ![Platform](https://img.shields.io/badge/support%20platform-android%20-purple)![open issues](https://img.shields.io/github/issues/kxsmm/imgui-injector
-) ![fork](https://img.shields.io/github/forks/kxsmm/imgui-injector
-?style=social) ![code line](https://img.shields.io/tokei/lines/github/kxsmm/imgui-injector)
 ## 项目简介
 
 imgui-injector 是一个用 C 语言编写的 ImGui 动态注入工具，可通过 Android NDK 交叉编译适配多平台，适合用于原生程序的 UI 插件开发、逆向调试等场景。
