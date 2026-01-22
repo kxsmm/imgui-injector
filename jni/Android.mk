@@ -28,6 +28,14 @@ LOCAL_SRC_FILES := \
     xdl/xdl_linker.c \
     xdl/xdl_lzma.c \
     xdl/xdl_util.c \
+	Xhook/xhook.c \
+    Xhook/xh_core.c \
+    Xhook/xh_elf.c \
+    Xhook/xh_jni.c \
+    Xhook/xh_log.c \
+    Xhook/xh_util.c \
+    Xhook/xh_version.c \
+    And64InlineHook/And64InlineHook.cpp \
 
 
 LOCAL_C_INCLUDES := \

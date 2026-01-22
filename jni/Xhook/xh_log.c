@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2025 HexHacking Team
+// Copyright (c) 2018-present, iQIYI, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -19,25 +19,9 @@
 // SOFTWARE.
 //
 
-// Created by caikelun on 2020-10-04.
+// Created by caikelun on 2018-04-11.
 
-#ifndef IO_GITHUB_HEXHACKING_XDL_ITERATE
-#define IO_GITHUB_HEXHACKING_XDL_ITERATE
+#include <android/log.h>
+#include "xh_log.h"
 
-#include <link.h>
-#include <stddef.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef int (*xdl_iterate_phdr_cb_t)(struct dl_phdr_info *info, size_t size, void *arg);
-int xdl_iterate_phdr_impl(xdl_iterate_phdr_cb_t cb, void *cb_arg, int flags);
-
-int xdl_iterate_get_full_pathname(uintptr_t base, char *buf, size_t buf_len);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+android_LogPriority xh_log_priority = ANDROID_LOG_WARN;

@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 HexHacking Team
+// Copyright (c) 2020-2025 HexHacking Team
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -46,6 +46,10 @@
 #include "xdl_lzma.h"
 #include "xdl_util.h"
 
+#ifndef STT_GNU_IFUNC
+#define STT_GNU_IFUNC 10
+#endif
+
 #ifndef __LP64__
 #define XDL_LIB_PATH "/system/lib"
 #else
@@ -68,7 +72,7 @@ typedef struct xdl {
   ElfW(Half) dlpi_phnum;
 
   struct xdl *next;     // to next xdl obj for cache in xdl_addr()
-  void *linker_handle;  // hold handle returned by xdl_linker_load()
+  void *linker_handle;  // hold handle returned by xdl_linker_force_dlopen()
 
   //
   // (1) for searching symbols from .dynsym
@@ -111,6 +115,9 @@ typedef struct xdl {
 } xdl_t;
 
 #pragma clang diagnostic pop
+
+static ElfW(Sym) *xdl_sym_by_addr(void *handle, void *addr);
+static ElfW(Sym) *xdl_dsym_by_addr(void *handle, void *addr);
 
 // load from memory
 static int xdl_dynsym_load(xdl_t *self) {
@@ -383,7 +390,7 @@ end:
 }
 
 static xdl_t *xdl_find_from_auxv(unsigned long type, const char *pathname) {
-  if (NULL == getauxval) return NULL;
+  if (NULL == getauxval) return NULL;  // API level < 18
 
   uintptr_t val = (uintptr_t)getauxval(type);
   if (0 == val) return NULL;
@@ -452,7 +459,7 @@ static int xdl_find_iterate_cb(struct dl_phdr_info *info, size_t size, void *arg
 
   // found the target ELF
   if (NULL == ((*self) = calloc(1, sizeof(xdl_t)))) return 1;  // return failed
-  if (NULL == ((*self)->pathname = strdup(info->dlpi_name))) {
+  if (NULL == ((*self)->pathname = strdup((const char *)info->dlpi_name))) {
     free(*self);
     *self = NULL;
     return 1;  // return failed
@@ -497,7 +504,7 @@ static xdl_t *xdl_find(const char *filename) {
 
 static void *xdl_open_always_force(const char *filename) {
   // always force dlopen()
-  void *linker_handle = xdl_linker_load(filename);
+  void *linker_handle = xdl_linker_force_dlopen(filename);
   if (NULL == linker_handle) return NULL;
 
   // find
@@ -516,17 +523,7 @@ static void *xdl_open_try_force(const char *filename) {
   if (NULL != self) return (void *)self;
 
   // try force dlopen()
-  void *linker_handle = xdl_linker_load(filename);
-  if (NULL == linker_handle) return NULL;
-
-  // find again
-  self = xdl_find(filename);
-  if (NULL == self)
-    dlclose(linker_handle);
-  else
-    self->linker_handle = linker_handle;
-
-  return (void *)self;
+  return xdl_open_always_force(filename);
 }
 
 void *xdl_open(const char *filename, int flags) {
@@ -538,6 +535,21 @@ void *xdl_open(const char *filename, int flags) {
     return xdl_open_try_force(filename);
   else
     return xdl_find(filename);
+}
+
+void *xdl_open2(struct dl_phdr_info *info) {
+  xdl_t *self = calloc(1, sizeof(xdl_t));
+  if (NULL == self) return NULL;
+  if (NULL == (self->pathname = strdup((const char *)info->dlpi_name))) {
+    free(self);
+    return NULL;
+  }
+  self->load_bias = info->dlpi_addr;
+  self->dlpi_phdr = info->dlpi_phdr;
+  self->dlpi_phnum = info->dlpi_phnum;
+  self->dynsym_try_load = false;
+  self->symtab_try_load = false;
+  return self;
 }
 
 void *xdl_close(void *handle) {
@@ -622,6 +634,67 @@ static ElfW(Sym) *xdl_dynsym_find_symbol_use_gnu_hash(xdl_t *self, const char *s
   return NULL;
 }
 
+typedef struct {
+  unsigned long size;   /** Set to sizeof(__ifunc_arg_t). */
+  unsigned long hwcap;  /** Set to getauxval(AT_HWCAP). */
+  unsigned long hwcap2; /** Set to getauxval(AT_HWCAP2). */
+} xdl_ifunc_arg_t;
+
+#if defined(__aarch64__)
+#define XDL_IFUNC_ARG_HWCAP (1ULL << 62)
+#endif
+
+static void *xdl_resolve_symbol_address(xdl_t *self, ElfW(Sym) *sym, size_t *symbol_size) {
+  if (ELF_ST_TYPE(sym->st_info) == STT_TLS) {
+    return NULL;
+  } else if (ELF_ST_TYPE(sym->st_info) == STT_GNU_IFUNC) {
+    void *sym_addr = (void *)(self->load_bias + sym->st_value);
+    void *real_sym_addr = NULL;
+    if (xdl_util_get_api_level() < __ANDROID_API_R__) {
+      // Android [4.x, 10]
+      typedef void *(*ifunc_resolver_t)(void);
+      real_sym_addr = ((ifunc_resolver_t)sym_addr)();
+    } else {
+      // Android [11, ...)
+#if defined(__aarch64__)
+      if (NULL == getauxval) return NULL;
+      typedef void *(*ifunc_resolver_t)(uint64_t, xdl_ifunc_arg_t *);
+      static xdl_ifunc_arg_t arg;
+      static bool initialized = false;
+      if (!initialized) {
+        arg.size = sizeof(xdl_ifunc_arg_t);
+        arg.hwcap = getauxval(AT_HWCAP);
+        arg.hwcap2 = getauxval(AT_HWCAP2);
+        initialized = true;
+      }
+      real_sym_addr = ((ifunc_resolver_t)sym_addr)(arg.hwcap | XDL_IFUNC_ARG_HWCAP, &arg);
+#elif defined(__arm__)
+      if (NULL == getauxval) return NULL;
+      typedef void *(*ifunc_resolver_t)(unsigned long);
+      static unsigned long hwcap;
+      static bool initialized = false;
+      if (!initialized) {
+        hwcap = getauxval(AT_HWCAP);
+        initialized = true;
+      }
+      real_sym_addr = ((ifunc_resolver_t)sym_addr)(hwcap);
+#else
+      typedef void *(*ifunc_resolver_t)(void);
+      real_sym_addr = ((ifunc_resolver_t)sym_addr)();
+#endif
+    }
+    if (NULL != symbol_size && NULL != real_sym_addr) {
+      ElfW(Sym) *real_sym = xdl_sym_by_addr(self, real_sym_addr);
+      if (NULL == real_sym) real_sym = xdl_dsym_by_addr(self, real_sym_addr);
+      if (NULL != real_sym) *symbol_size = real_sym->st_size;
+    }
+    return real_sym_addr;
+  } else {
+    if (NULL != symbol_size) *symbol_size = sym->st_size;
+    return (void *)(self->load_bias + sym->st_value);
+  }
+}
+
 void *xdl_sym(void *handle, const char *symbol, size_t *symbol_size) {
   if (NULL == handle || NULL == symbol) return NULL;
   if (NULL != symbol_size) *symbol_size = 0;
@@ -647,8 +720,50 @@ void *xdl_sym(void *handle, const char *symbol, size_t *symbol_size) {
   }
   if (NULL == sym || !XDL_DYNSYM_IS_EXPORT_SYM(sym->st_shndx)) return NULL;
 
-  if (NULL != symbol_size) *symbol_size = sym->st_size;
-  return (void *)(self->load_bias + sym->st_value);
+  return xdl_resolve_symbol_address(self, sym, symbol_size);
+}
+
+// clang-format off
+/*
+ * For internal symbols in .symtab, LLVM may add some suffixes (for example for thinLTO).
+ * The format of the suffix is: ".xxxx.[hash]". LLVM may add multiple suffixes at once.
+ * The symbol name after removing these all suffixes is called canonical name.
+ *
+ * Because the hash part in the suffix may change when recompiled, so here we only match
+ * the canonical name.
+ *
+ * IN ADDITION: According to C/C++ syntax, it is illegal for a function name to contain
+ * dot character('.'), either in the middle or at the end.
+ *
+ * samples:
+ *
+ * symbol name in .symtab          lookup                       is match
+ * ----------------------          ----------------             --------
+ * abcd                            abc                          N
+ * abcd                            abcde                        N
+ * abcd                            abcd                         Y
+ * abcd.llvm.10190306339727611508  abc                          N
+ * abcd.llvm.10190306339727611508  abcd                         Y
+ * abcd.llvm.10190306339727611508  abcd.                        N
+ * abcd.llvm.10190306339727611508  abcd.llvm                    Y
+ * abcd.llvm.10190306339727611508  abcd.llvm.                   N
+ * abcd.__uniq.513291356003753     abcd.__uniq.51329            N
+ * abcd.__uniq.513291356003753     abcd.__uniq.513291356003753  Y
+ */
+// clang-format on
+static inline bool xdl_dsym_is_match(const char *str, const char *sym, size_t sym_len) {
+  size_t str_len = strlen(str);
+  if (0 == str_len) return false;
+
+  if (str_len < sym_len) {
+    return false;
+  } else {
+    bool sym_len_match = (0 == memcmp(str, sym, sym_len));
+    if (str_len == sym_len)
+      return sym_len_match;
+    else  // str_len > sym_len
+      return sym_len_match && (str[sym_len] == '.' || str[sym_len] == '$');
+  }
 }
 
 void *xdl_dsym(void *handle, const char *symbol, size_t *symbol_size) {
@@ -665,11 +780,13 @@ void *xdl_dsym(void *handle, const char *symbol, size_t *symbol_size) {
 
   // find symbol
   if (NULL == self->symtab) return NULL;
+  size_t symbol_len = strlen(symbol);
   for (size_t i = 0; i < self->symtab_cnt; i++) {
     ElfW(Sym) *sym = self->symtab + i;
 
     if (!XDL_SYMTAB_IS_EXPORT_SYM(sym->st_shndx)) continue;
-    if (0 != strncmp(self->strtab + sym->st_name, symbol, self->strtab_sz - sym->st_name)) continue;
+    // if (0 != strncmp(self->strtab + sym->st_name, symbol, self->strtab_sz - sym->st_name)) continue;
+    if (!xdl_dsym_is_match(self->strtab + sym->st_name, symbol, symbol_len)) continue;
 
     if (NULL != symbol_size) *symbol_size = sym->st_size;
     return (void *)(self->load_bias + sym->st_value);
@@ -700,10 +817,12 @@ static int xdl_open_by_addr_iterate_cb(struct dl_phdr_info *info, size_t size, v
   xdl_t **self = (xdl_t **)*pkg++;
   uintptr_t addr = *pkg;
 
+  if (0 == info->dlpi_addr || NULL == info->dlpi_name) return 0;  // continue
+
   if (xdl_elf_is_match(info->dlpi_addr, info->dlpi_phdr, info->dlpi_phnum, addr)) {
     // found the target ELF
     if (NULL == ((*self) = calloc(1, sizeof(xdl_t)))) return 1;  // failed
-    if (NULL == ((*self)->pathname = strdup(info->dlpi_name))) {
+    if (NULL == ((*self)->pathname = strdup((const char *)info->dlpi_name))) {
       free(*self);
       *self = NULL;
       return 1;  // failed
@@ -716,7 +835,7 @@ static int xdl_open_by_addr_iterate_cb(struct dl_phdr_info *info, size_t size, v
     return 1;  // OK
   }
 
-  return 0;  // mismatch
+  return 0;  // continue
 }
 
 static void *xdl_open_by_addr(void *addr) {
@@ -731,13 +850,23 @@ static void *xdl_open_by_addr(void *addr) {
 
 static bool xdl_sym_is_match(ElfW(Sym) *sym, uintptr_t offset, bool is_symtab) {
   if (is_symtab) {
-    if (!XDL_SYMTAB_IS_EXPORT_SYM(sym->st_shndx)) false;
+    if (!XDL_SYMTAB_IS_EXPORT_SYM(sym->st_shndx)) return false;
   } else {
-    if (!XDL_DYNSYM_IS_EXPORT_SYM(sym->st_shndx)) false;
+    if (!XDL_DYNSYM_IS_EXPORT_SYM(sym->st_shndx)) return false;
   }
+  if (ELF_ST_TYPE(sym->st_info) == STT_TLS) return false;
 
-  return ELF_ST_TYPE(sym->st_info) != STT_TLS && offset >= sym->st_value &&
-         offset < sym->st_value + sym->st_size;
+  // For thumb instructions, "st_value" is an odd number, and the instructions are stored
+  // in the range: [st_value - 1, st_value - 1 + st_size).
+  // NOTE: The dladdr() implementation in the Android bionic linker does NOT fix this for
+  // thumb and is therefore incorrect.
+  uintptr_t sym_st_value_fixed = sym->st_value;
+#if defined(__arm__) && defined(__thumb__)
+#define CLEAR_BIT0(addr) ((addr) & 0xFFFFFFFE)
+  sym_st_value_fixed = CLEAR_BIT0(sym->st_value);
+#endif
+
+  return offset >= sym_st_value_fixed && offset < sym_st_value_fixed + sym->st_size;
 }
 
 static ElfW(Sym) *xdl_sym_by_addr(void *handle, void *addr) {
@@ -793,6 +922,10 @@ static ElfW(Sym) *xdl_dsym_by_addr(void *handle, void *addr) {
 }
 
 int xdl_addr(void *addr, xdl_info_t *info, void **cache) {
+  return xdl_addr4(addr, info, cache, XDL_DEFAULT);
+}
+
+int xdl_addr4(void *addr, xdl_info_t *info, void **cache, int flags) {
   if (NULL == addr || NULL == info || NULL == cache) return 0;
 
   memset(info, 0, sizeof(Dl_info));
@@ -820,15 +953,17 @@ int xdl_addr(void *addr, xdl_info_t *info, void **cache) {
   info->dlpi_phnum = (size_t)handle->dlpi_phnum;
 
   // keep looking for: symbol name, symbol offset, symbol size
-  ElfW(Sym) *sym;
-  if (NULL != (sym = xdl_sym_by_addr((void *)handle, addr))) {
-    info->dli_sname = handle->dynstr + sym->st_name;
-    info->dli_saddr = (void *)(handle->load_bias + sym->st_value);
-    info->dli_ssize = sym->st_size;
-  } else if (NULL != (sym = xdl_dsym_by_addr((void *)handle, addr))) {
-    info->dli_sname = handle->strtab + sym->st_name;
-    info->dli_saddr = (void *)(handle->load_bias + sym->st_value);
-    info->dli_ssize = sym->st_size;
+  if (!(flags & XDL_NON_SYM)) {
+    ElfW(Sym) *sym;
+    if (NULL != (sym = xdl_sym_by_addr((void *)handle, addr))) {
+      info->dli_sname = handle->dynstr + sym->st_name;
+      info->dli_saddr = (void *)(handle->load_bias + sym->st_value);
+      info->dli_ssize = sym->st_size;
+    } else if (NULL != (sym = xdl_dsym_by_addr((void *)handle, addr))) {
+      info->dli_sname = handle->strtab + sym->st_name;
+      info->dli_saddr = (void *)(handle->load_bias + sym->st_value);
+      info->dli_ssize = sym->st_size;
+    }
   }
 
   return 1;

@@ -94,7 +94,12 @@ EGLBoolean hook_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
         // ImGuiStyle& style = ImGui::GetStyle();
         // style.ScaleAllSizes(g_uiScale);
         //style.TouchExtraPadding = ImVec2(10 * g_uiScale, 10 * g_uiScale);
-        style.FramePadding = ImVec2(12.0f, 9.0f);
+        style.FramePadding = ImVec2(20.0f, 11.0f);
+        style.WindowPadding = ImVec2(20.0f, 20.0f);
+        style.FrameBorderSize = 1.0f;
+        style.FrameRounding = 12.0f;
+        style.WindowRounding = 12.0f;
+        style.WindowBorderSize = 1.0f;
         g_initialized = true;
     }
 

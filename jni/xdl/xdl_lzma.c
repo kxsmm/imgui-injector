@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 HexHacking Team
+// Copyright (c) 2020-2025 HexHacking Team
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@
 
 #include <ctype.h>
 #include <inttypes.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -85,7 +86,7 @@ static xdl_lzma_free_t xdl_lzma_free = NULL;
 static void *xdl_lzma_code = NULL;
 
 // LZMA init
-static void xdl_lzma_init() {
+static void xdl_lzma_init(void) {
   void *lzma = xdl_open(XDL_LZMA_PATHNAME, XDL_TRY_FORCE_LOAD);
   if (NULL == lzma) return;
 
@@ -127,10 +128,15 @@ int xdl_lzma_decompress(uint8_t *src, size_t src_size, uint8_t **dst, size_t *ds
   int api_level = xdl_util_get_api_level();
 
   // init and check
+  static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
   static bool inited = false;
   if (!inited) {
-    xdl_lzma_init();
-    inited = true;
+    pthread_mutex_lock(&lock);
+    if (!inited) {
+      xdl_lzma_init();
+      inited = true;
+    }
+    pthread_mutex_unlock(&lock);
   }
   if (NULL == xdl_lzma_code) return -1;
 
