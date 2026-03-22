@@ -28,15 +28,27 @@ LOCAL_SRC_FILES := \
     xdl/xdl_linker.c \
     xdl/xdl_lzma.c \
     xdl/xdl_util.c \
-
+    ByNameModding/Tools.cpp \
+    ByNameModding/fake_dlfcn.cpp \
+    ByNameModding/Il2Cpp.cpp \
+    Substrate/hde64.c \
+    Substrate/SubstrateDebug.cpp \
+    Substrate/SubstrateHook.cpp \
+    Substrate/SubstratePosixMemory.cpp \
+    Substrate/SymbolFinder.cpp \
+    KittyMemory/KittyMemory.cpp \
+    KittyMemory/MemoryPatch.cpp \
+    KittyMemory/MemoryBackup.cpp \
+    KittyMemory/KittyUtils.cpp \
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/imGui \
     $(LOCAL_PATH)/xdl/include \
-    $(LOCAL_PATH)/includes \
+    $(LOCAL_PATH)/Includes \
+
 # 编译标志
-LOCAL_CFLAGS := -DIMGUI_IMPL_OPENGL_ES3 -fvisibility=hidden
-LOCAL_CPPFLAGS := -std=c++17
+LOCAL_CFLAGS := -DIMGUI_IMPL_OPENGL_ES3 -fvisibility=hidden -Wno-writable-strings -Wno-return-stack-address -Wno-format
+LOCAL_CPPFLAGS := -std=c++17 -Wno-writable-strings -Wno-return-stack-address -Wno-format
 
 # 链接库
 LOCAL_LDLIBS := -lGLESv3 -lEGL -llog -landroid

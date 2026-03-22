@@ -6,32 +6,32 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <stdint.h>
 #include <cstdlib>
 #include "Logger.h"
 #include <obfuscate.h>
 
-typedef unsigned long DWORD;
 static uintptr_t libBase;
 
 bool libLoaded = false;
 
-DWORD findLibrary(const char *library) {
+uint64_t findLibrary(const char *library) {
     char filename[0xFF] = {0},
             buffer[1024] = {0};
     FILE *fp = NULL;
-    DWORD address = 0;
+    uint64_t address = 0;
 
     sprintf(filename, "/proc/self/maps");
 
-    fp = fopen(filename, OBFUSCATE("rt"));
+    fp = fopen(filename, ("rt"));
     if (fp == NULL) {
-        perror(OBFUSCATE("fopen"));
+        perror(("fopen"));
         goto done;
     }
 
     while (fgets(buffer, sizeof(buffer), fp)) {
         if (strstr(buffer, library)) {
-            address = (DWORD) strtoul(buffer, NULL, 16);
+            address = (uint64_t) strtoul(buffer, NULL, 16);
             goto done;
         }
     }
@@ -45,11 +45,11 @@ DWORD findLibrary(const char *library) {
     return address;
 }
 
-DWORD getAbsoluteAddress(const char *libraryName, DWORD relativeAddr) {
+uint64_t getAbsoluteAddress(const char *libraryName, uint64_t relativeAddr) {
     libBase = findLibrary(libraryName);
     if (libBase == 0)
         return 0;
-    return (reinterpret_cast<DWORD>(libBase + relativeAddr));
+    return (reinterpret_cast<uint64_t>(libBase + relativeAddr));
 }
 
 
@@ -60,7 +60,7 @@ jboolean isGameLibLoaded(JNIEnv *env, jobject thiz) {
 bool isLibraryLoaded(const char *libraryName) {
     //libLoaded = true;
     char line[512] = {0};
-    FILE *fp = fopen(OBFUSCATE("/proc/self/maps"), OBFUSCATE("rt"));
+    FILE *fp = fopen(("/proc/self/maps"), ("rt"));
     if (fp != NULL) {
         while (fgets(line, sizeof(line), fp)) {
             std::string a = line;
