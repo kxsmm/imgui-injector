@@ -1,4 +1,3 @@
-
 # imgui-injector
 
 <!-- 项目状态徽章 -->
@@ -35,6 +34,9 @@ git clone https://github.com/kxsmm/imgui-injector.git
 3. 按照 NDK 指引进行编译和集成，即可在目标进程中注入 ImGui。
 
 4. 本项目模板仅适用于Android平台
+  
+5. 加上了Hook库
+
 ## 贡献
 
 欢迎 Issue 或 PR 参与项目完善！
