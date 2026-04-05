@@ -38,6 +38,28 @@ git clone https://github.com/kxsmm/imgui-injector.git
 5. 加上Lua库 并且往Lua中适配了部分ImGui函数和功能 方便Lua即可使用(注：把Lua文件路径放在
 `/storage/emulated/0/Hook.lua`)
 
+6. 代码例子
+```lua
+local i = 0
+function OnImGui()
+	ImGui.SetNextWindowSize({x = 500, y = 500 / 1.618}, 2)
+	ImGui.Begin("Lua ImGui v1.0")
+	ImGui.Text("我来自Lua  PID="..Mem.GetPID())
+	ImGui.ShowStyleSelector("主题")
+	if ImGui.Button("点击我") then 
+		i = i + 1
+		print.D(tostring(i))
+	end
+	ImGui.SameLine()
+	ImGui.Text(tostring(i))
+	if ImGui.Button("安全退出") then 
+		System.exit()
+	end	
+	ImGui.End()
+end
+```
+
+
 ## 贡献
 
 欢迎 Issue 或 PR 参与项目完善！
