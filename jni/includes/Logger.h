@@ -17,7 +17,7 @@ enum LogType {
     oWARN  = 5
 };
 
-#define TAG OBFUSCATE("Mod_imGui")
+#define TAG ("Mod_imGui")
 
 #define LOGD(...) ((void)__android_log_print(oDEBUG, TAG, __VA_ARGS__))
 #define LOGE(...) ((void)__android_log_print(oERROR, TAG, __VA_ARGS__))
