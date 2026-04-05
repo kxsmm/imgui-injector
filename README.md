@@ -36,7 +36,7 @@ git clone https://github.com/kxsmm/imgui-injector.git
 4. 本项目模板仅适用于Android平台
 
 5. 加上Lua库 并且往Lua中适配了部分ImGui函数和功能 方便Lua即可使用(注：把Lua文件路径放在
-`/storage/emulated/0/Hook.lua`(当然也可以在源码中修改))
+`/storage/emulated/0/Hook.lua`)
 
 ## 贡献
 
