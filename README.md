@@ -34,6 +34,9 @@ git clone https://github.com/kxsmm/imgui-injector.git
 3. 按照 NDK 指引进行编译和集成，即可在目标进程中注入 ImGui。
 
 4. 本项目模板仅适用于Android平台
+
+5. 加上Lua库 并且往Lua中适配了部分ImGui函数和功能 方便Lua即可使用 注：把Lua文件路径放在`/storage/emulated/0/Hook.lua` 下
+
 ## 贡献
 
 欢迎 Issue 或 PR 参与项目完善！
